@@ -346,9 +346,27 @@ int ksu_patch_text(void *dst, void *src, size_t len, int flags)
         .len = len,
         .cpu_count = ATOMIC_INIT(0),
         .flags = flags,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+        .vmap_base = NULL,
+        .writable_addr = NULL,
+#endif
     };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+    int ret;
+
+    ret = ksu_prepare_patch_vmap(&info);
+    if (ret)
+        return ret;
+
+    ret = stop_machine(ksu_patch_text_cb, &info, cpu_online_mask);
+
+    vunmap(info.vmap_base);
+
+    return ret;
+#else
     return stop_machine(ksu_patch_text_cb, &info, cpu_online_mask);
+#endif
 }
 
 #endif /* __aarch64__ */
