@@ -97,7 +97,7 @@ bool ksu_late_loaded;
 #include "hook/lsm_hook_magic.h"
 #endif
 
-static inline void ksu_hook_init(void)
+static inline void __init ksu_hook_init(void)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     ksu_lsm_hook_magic_init();
@@ -121,7 +121,7 @@ static inline void ksu_hook_init(void)
 #endif
 }
 
-static inline void ksu_hook_exit(void)
+static inline void __exit ksu_hook_exit(void)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     ksu_lsm_hook_magic_exit();
