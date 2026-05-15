@@ -24,8 +24,6 @@ extern struct selinux_policy *backup_sepolicy;
 #endif
 #define KSU_FULL_VERSION_STRING 255
 
-void ksu_lsm_hook_init(void);
-
 void setup_ksu_cred(void);
 
 #endif

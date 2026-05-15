@@ -89,6 +89,8 @@ bool ksu_late_loaded;
 #ifdef CONFIG_KSU_TRACEPOINT_HOOK
 #include "hook/syscall_hook_manager.h"
 #include "hook/syscall_hook.h"
+#else
+#include "hook/lsm_hooks.h"
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)

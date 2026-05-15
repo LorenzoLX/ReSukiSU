@@ -477,7 +477,7 @@ static int ksu_selinux_hide_enable()
     struct security_hook_list *hp;
 
     // https://github.com/torvalds/linux/commit/df0ce17331e2501dbffc060041dfc6c5f85227b5
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0) || defined(KSU_COMPAT_HLIST_FOR_SECURITY_HOOK_LIST)
 #define ksu_for_each_lsm_entry hlist_for_each_entry
 #else
 #define ksu_for_each_lsm_entry list_for_each_entry
