@@ -258,7 +258,7 @@ fun runModuleAction(
 fun restoreBoot(
     onFinish: (Boolean, Int) -> Unit, onStdout: (String) -> Unit, onStderr: (String) -> Unit
 ): Boolean {
-    val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
+    File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
     val result = flashWithIO(
         "${getKsuDaemonPath()} boot-restore -f",
         onStdout,
@@ -600,7 +600,7 @@ fun getSuSFSFeatures(): String {
 
 fun getSuSFSSlotInfoJson(): String {
     val shell = getRootShell()
-    val cmd = "${getKsuDaemonPath()} susfs slot_info json"
+    val cmd = "${getKsuDaemonPath()} susfs slot_info"
     val result = shell.newJob().add(cmd).to(ArrayList<String>(), null).exec()
     if (!result.isSuccess) return "[]"
     return result.out.joinToString("\n").trim().ifBlank { "[]" }

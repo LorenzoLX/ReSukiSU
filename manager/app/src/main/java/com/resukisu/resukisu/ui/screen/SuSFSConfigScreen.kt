@@ -19,10 +19,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
@@ -78,7 +76,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -109,7 +106,6 @@ import com.resukisu.resukisu.ui.theme.blurEffect
 import com.resukisu.resukisu.ui.theme.blurSource
 import com.resukisu.resukisu.ui.util.LocalSnackbarHost
 import com.resukisu.resukisu.ui.viewmodel.ConfigurableSuSFSFeature
-import com.resukisu.resukisu.ui.viewmodel.SuSFSAppEntry
 import com.resukisu.resukisu.ui.viewmodel.SuSFSFeatureStatus
 import com.resukisu.resukisu.ui.viewmodel.SuSFSScreenViewModel
 import com.resukisu.resukisu.ui.viewmodel.SuSFSStaticKstatEntry
@@ -253,7 +249,7 @@ private fun SuSFeaturesTab(
                 }
             }
             item {
-                FeatureGroup(viewModel = viewModel, features = uiState.featureStatus)
+                FeatureGroup(features = uiState.featureStatus)
             }
             item {
                 Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
@@ -488,90 +484,63 @@ private fun SuSLoopPathTab(
     }
 }
 
+private val appPathRegex = Regex(".*/Android/data/([^/]+)/?.*")
+
 @Composable
 private fun SuSPathTab(
     viewModel: SuSFSScreenViewModel,
     contentPadding: PaddingValues,
     nestedScrollConnection: NestedScrollConnection,
 ) {
-    val coroutineScope = rememberCoroutineScope()
+    val appListSnapshot =
+        remember(SuperUserViewModel.isRefreshing) { SuperUserViewModel.getAppListSnapshot() }
+
     val uiState = viewModel.uiState
     val pathEditDialog = rememberPathEditDialog(AddPathTarget.SusPath, viewModel)
-    var appEntries by remember { mutableStateOf<List<SuSFSAppEntry>>(emptyList()) }
-    var isAppListLoading by remember { mutableStateOf(false) }
-    var shouldLoadAppsAfterCacheReady by remember { mutableStateOf(false) }
-    val isAppCacheReady = SuperUserViewModel.isAppCacheReady
-    val isAppCacheLoading = SuperUserViewModel.isAppCacheLoading
 
     var addAppDialog: DialogHandle? by remember { mutableStateOf(null) }
 
     addAppDialog = rememberCustomDialog { dismiss ->
         AddAppPathDialog(
-            apps = appEntries,
+            apps = appListSnapshot,
             existingSusPaths = uiState.susPaths,
-            isLoading = isAppListLoading || !isAppCacheReady || isAppCacheLoading,
+            isLoading = SuperUserViewModel.isRefreshing,
             onDismiss = dismiss,
             onConfirm = { packageNames ->
                 viewModel.addAppPaths(packageNames)
-                coroutineScope.launch {
-                    isAppListLoading = true
-                    appEntries = viewModel.loadSelectableApps()
-                    isAppListLoading = false
-                }
                 dismiss()
             }
         )
     }
 
-    LaunchedEffect(isAppCacheReady, isAppCacheLoading, shouldLoadAppsAfterCacheReady) {
-        if (shouldLoadAppsAfterCacheReady && isAppCacheReady && !isAppCacheLoading && !isAppListLoading) {
-            isAppListLoading = true
-            appEntries = viewModel.loadSelectableApps()
-            isAppListLoading = false
-            shouldLoadAppsAfterCacheReady = false
-        }
+    val uidToPackage = remember(appListSnapshot) {
+        appListSnapshot.associateBy { it.packageName }
     }
 
-    val appPathRegex = remember { Regex(".*/Android/data/([^/]+)/?.*") }
-    val uidPathRegex = remember { Regex("/sys/fs/cgroup(?:/[^/]+)*/uid_([0-9]+)") }
-    val uidToPackage = remember(appEntries) {
-        appEntries.associateBy { it.packageName }
-    }
-    val grouped = remember(uiState.susPaths, uidToPackage) {
-        val appGroups = linkedMapOf<String, MutableList<String>>()
+    val (appGroups, otherPaths) = remember(uiState.susPaths, uidToPackage) {
+        val appGroupsMap = linkedMapOf<String, MutableList<String>>()
         val others = mutableListOf<String>()
         val packageToLabel = uidToPackage.mapValues { it.value.label }
 
         uiState.susPaths.forEach { path ->
-            val pkgByData = appPathRegex.find(path)?.groupValues?.getOrNull(1)
-            val pkg = pkgByData ?: run {
-                val uid = uidPathRegex.find(path)?.groupValues?.getOrNull(1)
-                if (uid != null) {
-                    val found = SuperUserViewModel.apps.firstOrNull {
-                        it.packageInfo.applicationInfo?.uid?.toString() == uid
-                    }
-                    found?.packageName
-                } else {
-                    null
-                }
-            }
+            val pkg = appPathRegex.find(path)?.groupValues?.getOrNull(1)
+
             if (!pkg.isNullOrBlank()) {
-                appGroups.getOrPut(pkg) { mutableListOf() } += path
+                appGroupsMap.getOrPut(pkg) { mutableListOf() } += path
             } else {
                 others += path
             }
         }
 
-        val appSection = appGroups.entries
+        val appSection = appGroupsMap.entries
             .map { entry ->
                 val label = packageToLabel[entry.key] ?: entry.key
                 label to entry.value.sorted()
             }
             .sortedBy { it.first.lowercase() }
+
         appSection to others.sorted()
     }
-    val appGroups = grouped.first
-    val otherPaths = grouped.second
 
     Column(
         modifier = Modifier
@@ -592,20 +561,7 @@ private fun SuSPathTab(
                             title = stringResource(R.string.add_app_path),
                             description = null,
                             onClick = {
-                                coroutineScope.launch {
-                                    if (!isAppCacheReady || isAppCacheLoading) {
-                                        shouldLoadAppsAfterCacheReady = true
-                                        addAppDialog?.show()
-                                        return@launch
-                                    }
-                                    if (appEntries.isEmpty()) {
-                                        shouldLoadAppsAfterCacheReady = false
-                                        isAppListLoading = true
-                                        appEntries = viewModel.loadSelectableApps()
-                                        isAppListLoading = false
-                                    }
-                                    addAppDialog?.show()
-                                }
+                                addAppDialog?.show()
                             }
                         ) {}
                     }
@@ -1308,7 +1264,6 @@ private fun StaticKstatGroup(
 
 @Composable
 private fun FeatureGroup(
-    viewModel: SuSFSScreenViewModel,
     features: List<SuSFSFeatureStatus>,
 ) {
     SegmentedColumn(
@@ -1406,31 +1361,6 @@ private fun PathEditDialog(
                 Text(text = stringResource(R.string.cancel))
             }
         }
-    )
-}
-
-@Composable
-private fun AppEntryIcon(
-    modifier: Modifier = Modifier,
-    packageInfo: android.content.pm.PackageInfo? = null,
-) {
-    if (packageInfo == null) {
-        Icon(
-            imageVector = Icons.Filled.Apps,
-            contentDescription = null,
-            modifier = modifier
-        )
-        return
-    }
-
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(packageInfo)
-            .crossfade(true)
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .build(),
-        contentDescription = null,
-        modifier = modifier.clip(RoundedCornerShape(8.dp))
     )
 }
 
@@ -1576,7 +1506,7 @@ private fun KstatPairField(
 
 @Composable
 private fun AddAppPathDialog(
-    apps: List<SuSFSAppEntry>,
+    apps: List<SuperUserViewModel.AppInfo>,
     existingSusPaths: List<String>,
     isLoading: Boolean,
     onDismiss: () -> Unit,
@@ -1642,7 +1572,11 @@ private fun AddAppPathDialog(
                             ) {}
                         }
                     } else {
-                        items(filtered, key = { it.packageName }) { app ->
+                        lazySegmentColumn(
+                            filtered,
+                            key = { _, item -> item.packageName },
+                            noHorizontalPadding = true
+                        ) { _, app ->
                             val checked = selected.contains(app.packageName)
                             SettingsBaseWidget(
                                 icon = null,
@@ -1650,24 +1584,24 @@ private fun AddAppPathDialog(
                                 title = app.label,
                                 description = app.packageName,
                                 leadingContent = {
-                                    AppEntryIcon(
-                                        packageInfo = app.packageInfo,
-                                        modifier = Modifier.size(24.dp)
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(app.packageInfo)
+                                            .crossfade(true)
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .build(),
+                                        contentDescription = app.label,
+                                        modifier = Modifier
+                                            .padding(4.dp)
+                                            .size(48.dp)
                                     )
                                 },
                                 onClick = {
                                     selected =
                                         if (checked) selected - app.packageName else selected + app.packageName
-                                }
-                            ) {
-                                if (checked) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Edit,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
+                                },
+                                selected = checked
+                            )
                         }
                     }
                 }

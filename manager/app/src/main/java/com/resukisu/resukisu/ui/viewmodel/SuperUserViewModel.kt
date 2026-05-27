@@ -74,9 +74,9 @@ class SuperUserViewModel : ViewModel() {
     companion object {
         private const val TAG = "SuperUserViewModel"
         private val appsLock = Any()
-        var apps by mutableStateOf<List<AppInfo>>(emptyList())
-        var isAppCacheReady by mutableStateOf(false)
-        var isAppCacheLoading by mutableStateOf(false)
+        private var apps by mutableStateOf<List<AppInfo>>(emptyList())
+        var isRefreshing by mutableStateOf(false)
+            private set
 
         @JvmStatic
         fun getAppIconDrawable(context: Context, packageName: String): Drawable? {
@@ -84,6 +84,9 @@ class SuperUserViewModel : ViewModel() {
             return appList.find { it.packageName == packageName }
                 ?.packageInfo?.applicationInfo?.loadIcon(context.packageManager)
         }
+
+        @JvmStatic
+        fun getAppListSnapshot(): List<AppInfo> = synchronized(appsLock) { apps }
 
         var appGroups by mutableStateOf<List<AppGroup>>(emptyList())
 
@@ -149,8 +152,6 @@ class SuperUserViewModel : ViewModel() {
     var selectedCategory by mutableStateOf(loadSelectedCategory())
         private set
     var currentSortType by mutableStateOf(loadCurrentSortType())
-        private set
-    var isRefreshing by mutableStateOf(false)
         private set
     var showBatchActions by mutableStateOf(false)
         internal set
@@ -323,8 +324,6 @@ class SuperUserViewModel : ViewModel() {
         if (isRefreshing) return
 
         isRefreshing = true
-        isAppCacheLoading = true
-        isAppCacheReady = false
         loadingProgress = 0f
         val (connection, binder) = connectKsuService() ?: run { isRefreshing = false; return }
 

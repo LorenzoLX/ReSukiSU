@@ -199,10 +199,7 @@ pub enum SuSFSSubCommands {
     },
     /// Read boot slot kernel uname/build-time (auto-decompress kernel payload)
     #[command(name = "slot_info")]
-    SlotInfo {
-        #[command(subcommand)]
-        info_type: SlotInfoType,
-    },
+    SlotInfo,
 }
 
 #[derive(Subcommand, Debug)]
@@ -211,11 +208,6 @@ pub enum ShowType {
     #[command(name = "enabled_features")]
     EnabledFeatures,
     Variant,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum SlotInfoType {
-    Json,
 }
 
 #[derive(Debug, Parser)]
@@ -405,9 +397,7 @@ pub fn run_main(command: SuSFSSubCommands) -> Result<()> {
                 &blksize,
             );
         }
-        SuSFSSubCommands::SlotInfo { info_type } => match info_type {
-            SlotInfoType::Json => slot_info::show_slot_info_json()?,
-        },
+        SuSFSSubCommands::SlotInfo => slot_info::show_slot_info_json()?,
     }
 
     Ok(())

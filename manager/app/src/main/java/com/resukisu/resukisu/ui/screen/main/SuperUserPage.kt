@@ -357,7 +357,7 @@ private fun SuperUserContent(
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                if ((viewModel.isRefreshing || viewModel.appGroupList.isEmpty()) && viewModel.search.isEmpty()) {
+                if ((SuperUserViewModel.isRefreshing || viewModel.appGroupList.isEmpty()) && viewModel.search.isEmpty()) {
                     LoadingIndicator()
                 }
                 else {
@@ -394,7 +394,7 @@ private fun SuperUserContent(
     PullToRefreshBox(
         state = pullRefreshState,
         onRefresh = { scope.launch { viewModel.fetchAppList() } },
-        isRefreshing = viewModel.isRefreshing,
+        isRefreshing = SuperUserViewModel.isRefreshing,
         modifier = Modifier
             .fillMaxSize()
             .blurSource(),
@@ -404,7 +404,7 @@ private fun SuperUserContent(
                     .padding(top = innerPadding.calculateTopPadding())
                     .align(Alignment.TopCenter),
                 state = pullRefreshState,
-                isRefreshing = viewModel.isRefreshing,
+                isRefreshing = SuperUserViewModel.isRefreshing,
             )
         },
     ) {
