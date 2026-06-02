@@ -8,7 +8,7 @@ use log::{LevelFilter, error, info};
 use crate::{
     android::{
         debug, dynamic_manager, feature, init_event, ksucalls,
-        module::{self, module_config},
+        module::{self, module_config, regenerate_preinit_rc},
         profile, sepolicy, su, sulog,
         susfs::{self},
         umount_config, utils,
@@ -156,6 +156,12 @@ enum Commands {
 
     /// Manage susfs component
     Susfs(susfs::cli::SusfsArgs),
+
+    /// Manage initrc injection
+    Initrc {
+        #[command(subcommand)]
+        command: Initrc,
+    },
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -554,6 +560,22 @@ mod kpm_cmd {
     }
 }
 
+#[derive(clap::Subcommand, Debug)]
+enum Susfs {
+    /// Get SUSFS Status
+    Status,
+    /// Get SUSFS Version
+    Version,
+    /// Get SUSFS enable Features
+    Features,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum Initrc {
+    /// Regenerate preinit rc file
+    Refresh,
+}
+
 #[allow(clippy::similar_names)]
 pub fn run() -> Result<()> {
     android_logger::init_once(
@@ -893,6 +915,9 @@ pub fn run() -> Result<()> {
                 Kpm::Version => kpm::version(),
             }
         }
+        Commands::Initrc { command } => match command {
+            Initrc::Refresh => regenerate_preinit_rc(),
+        },
     };
 
     if let Err(e) = &result {
