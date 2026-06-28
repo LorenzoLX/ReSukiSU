@@ -342,6 +342,7 @@ __weak long copy_from_kernel_nofault(void *dst, const void *src, size_t size)
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0) || defined(KSU_COMPAT_HAVE_EXECMEM_API)
+#include <linux/execmem.h>
 
 #ifdef CONFIG_ARCH_HAS_EXECMEM_ROX
 #include <linux/set_memory.h>
